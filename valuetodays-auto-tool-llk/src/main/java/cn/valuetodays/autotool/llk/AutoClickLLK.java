@@ -58,7 +58,7 @@ public class AutoClickLLK {
         WinDef.RECT windowRect = new WinDef.RECT();
         Win32Utils.USER_32.GetWindowRect(hwnd, windowRect);
         System.out.println("windowRect: " + windowRect);
-        BufferedImage ss = ScreenUtils.getScreenshotOfWindow(hwnd, false);
+        BufferedImage ss = ScreenUtils.getScreenshotOfWindow(hwnd, false, 1.0f);
         File fullFile = new File(basePath + "/s0-full.jpg");
 //        ScreenUtils.saveScreenshotToJpgFile(ss, fullFile);
 

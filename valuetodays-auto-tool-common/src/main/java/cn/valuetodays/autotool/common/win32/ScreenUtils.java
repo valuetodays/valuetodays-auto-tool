@@ -7,9 +7,11 @@ import org.apache.commons.lang3.StringUtils;
 
 import javax.imageio.ImageIO;
 import java.awt.AWTException;
+import java.awt.Image;
 import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.image.BufferedImage;
+import java.awt.image.MultiResolutionImage;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -39,10 +41,10 @@ public final class ScreenUtils {
     }
 
     public static BufferedImage getScreenshotOfWindow(WinDef.HWND hWnd) {
-        return getScreenshotOfWindow(hWnd, true);
+        return getScreenshotOfWindow(hWnd, true, 1.0f);
     }
     public static BufferedImage getScreenshotOfWindowClient(WinDef.HWND hWnd) {
-        return getScreenshotOfWindow(hWnd, false);
+        return getScreenshotOfWindow(hWnd, false, 1.0f);
     }
 
     /**
@@ -50,7 +52,7 @@ public final class ScreenUtils {
      * @param hWnd window handle
      * @param fullWindow false for only client region
      */
-    public static BufferedImage getScreenshotOfWindow(WinDef.HWND hWnd, boolean fullWindow) {
+    public static BufferedImage getScreenshotOfWindow(WinDef.HWND hWnd, boolean fullWindow, float systemZoom) {
         if (Objects.isNull(robot)) {
             throw new IllegalStateException("not support getScreenshotOfWindow");
         }
@@ -60,7 +62,15 @@ public final class ScreenUtils {
         if (fullWindow) {
             WinDef.RECT windowRect = new WinDef.RECT();
             User32.INSTANCE.GetWindowRect(hWnd, windowRect);
-            return robot.createScreenCapture(windowRect.toRectangle());
+            Rectangle rect = windowRect.toRectangle();
+            // 修正缩放
+            Rectangle zoomedRect = new Rectangle(
+                Math.round(rect.x * systemZoom),
+                Math.round(rect.y * systemZoom),
+                Math.round(rect.width * systemZoom),
+                Math.round(rect.height * systemZoom)
+            );
+            return robot.createScreenCapture(zoomedRect);
         } else {
             WinDef.RECT clientRect = new WinDef.RECT();
             User32.INSTANCE.GetClientRect(hWnd, clientRect);
@@ -69,16 +79,20 @@ public final class ScreenUtils {
             Win32Utils.USER_32_PLUS.ClientToScreen(hWnd, leftTopPoint);
             WinDef.POINT rightBottomPoint = new WinDef.POINT(clientRect.right, clientRect.bottom);
             Win32Utils.USER_32_PLUS.ClientToScreen(hWnd, rightBottomPoint);
-            Rectangle rectangle = new Rectangle(
-                leftTopPoint.x, leftTopPoint.y,
-                rightBottomPoint.x - leftTopPoint.x, rightBottomPoint.y - leftTopPoint.y
-            );
-            return robot.createScreenCapture(rectangle);
+
+            int left = Math.round(leftTopPoint.x / systemZoom);
+            int top = Math.round(leftTopPoint.y / systemZoom);
+            int width = Math.round((rightBottomPoint.x - leftTopPoint.x) / systemZoom);
+            int height = Math.round((rightBottomPoint.y - leftTopPoint.y) / systemZoom);
+            Rectangle zoomedRect = new Rectangle(left, top, width, height);
+            BufferedImage image = robot.createScreenCapture(zoomedRect);
+            BufferedImage zoomedImage = ImageUtils.scaleImage(image, systemZoom);
+            return zoomedImage;
         }
     }
 
     public static void saveScreenshotToFile(WinDef.HWND hWnd, String formatName, File file, boolean fullWindow) {
-        BufferedImage image = getScreenshotOfWindow(hWnd, fullWindow);
+        BufferedImage image = getScreenshotOfWindow(hWnd, fullWindow, 1.0f);
         saveScreenshotToFile(image, formatName, file);
     }
 
